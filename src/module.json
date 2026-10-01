@@ -1,0 +1,46 @@
+{
+  "id": "stereoid",
+  "name": "Stereoid",
+  "abbrev": "STRD",
+  "version": "0.1.0",
+  "author": "legsmechanical",
+  "license": "MIT",
+  "description": "A stereo widener with three engines: Comb (mono-safe, no lean), Haas (a delayed side, with character) and Disperse (an all-pass and comb widener modelled from measurement).",
+  "dsp": "stereoid.so",
+  "api_version": 2,
+  "min_host_version": "1.5.0",
+  "capabilities": {
+    "chainable": true,
+    "component_type": "audio_fx",
+    "audio_in": true,
+    "chain_params": [
+      { "key": "mode",  "name": "Engine",     "short_name": "MODE",  "type": "enum",  "options": ["Comb", "Haas", "Disperse"], "default": "Comb" },
+      { "key": "wide",  "name": "Wide",       "short_name": "WIDE",  "type": "int",   "min": -100,  "max": 100,   "unit": "%",  "default": 50 },
+      { "key": "freq",  "name": "Wide Freq",  "short_name": "WFREQ", "type": "int",   "min": 20,    "max": 4000,  "unit": "Hz", "default": 150 },
+      { "key": "time",  "name": "Time",       "short_name": "TIME",  "type": "float", "min": 0.0,   "max": 12.0,  "step": 0.1, "unit": "ms", "default": 0.0 },
+      { "key": "trim",  "name": "Trim",       "short_name": "TRIM",  "type": "float", "min": -12.0, "max": 0.0,   "step": 0.1, "unit": "dB", "default": 0.0 },
+      { "key": "comp",  "name": "Comp",       "short_name": "COMP",  "type": "enum",  "options": ["Off", "Loud", "Peak"], "default": "Off" },
+      { "key": "hicut", "name": "High Cut",   "short_name": "HICUT", "type": "int",   "min": 1000,  "max": 20000, "unit": "Hz", "default": 20000 },
+      { "key": "late",  "name": "Late Level", "short_name": "LATE",  "type": "float", "min": -12.0, "max": 12.0,  "step": 0.1, "unit": "dB", "default": 0.0 }
+    ],
+    "ui_hierarchy": {
+      "levels": {
+        "root": {
+          "name": "Stereoid",
+          "params": [
+            { "key": "mode",  "name": "Engine",     "short_name": "MODE",  "type": "enum",  "options": ["Comb", "Haas", "Disperse"], "default": "Comb" },
+            { "key": "wide",  "name": "Wide",       "short_name": "WIDE",  "type": "int",   "min": -100,  "max": 100,   "unit": "%",  "default": 50 },
+            { "key": "freq",  "name": "Wide Freq",  "short_name": "WFREQ", "type": "int",   "min": 20,    "max": 4000,  "unit": "Hz", "default": 150 },
+            { "key": "time",  "name": "Time",       "short_name": "TIME",  "type": "float", "min": 0.0,   "max": 12.0,  "step": 0.1, "unit": "ms", "default": 0.0 },
+            { "key": "trim",  "name": "Trim",       "short_name": "TRIM",  "type": "float", "min": -12.0, "max": 0.0,   "step": 0.1, "unit": "dB", "default": 0.0 },
+            { "key": "comp",  "name": "Comp",       "short_name": "COMP",  "type": "enum",  "options": ["Off", "Loud", "Peak"], "default": "Off" },
+            { "key": "hicut", "name": "High Cut",   "short_name": "HICUT", "type": "int",   "min": 1000,  "max": 20000, "unit": "Hz", "default": 20000 },
+            { "key": "late",  "name": "Late Level", "short_name": "LATE",  "type": "float", "min": -12.0, "max": 12.0,  "step": 0.1, "unit": "dB", "default": 0.0,
+              "visible_if": { "param": "mode", "equals": "Haas" } }
+          ],
+          "knobs": ["mode", "wide", "freq", "time", "trim", "comp", "hicut", "late"]
+        }
+      }
+    }
+  }
+}
