@@ -19,6 +19,8 @@
  *     the side's level law (-12/-6/0/0 dB), delay law (0.03 ms per Wider-%)
  *     and group delay, and PER-CHANNEL processing
  *   - WFREQ and HICUT bound the widened band; Haas's three bands sum flat
+ *   - M/S scales the side the input already has: the mid untouched, -100
+ *     mono, a mono input left alone; WFREQ/HICUT bound which side moves
  *   - TRIM is the output level: the mono sum is the input x it
  *   - COMP is a trim that follows the width: Loud holds each ear's energy,
  *     Peak its worst-case level; Haas is trimmed only for what LATE adds
@@ -431,6 +433,93 @@ static void test_disperse(void) {
     }
 }
 
+static void test_ms(void) {
+    /* Full band: the mid is untouched and the side is k x the input's,
+     * k = 1 + WIDE/100. */
+    const float wides[] = {100, 50, -50, -100};
+    for (int t = 0; t < 4; t++) {
+        run(CFG(STEREOID_MS, wides[t]), wide_in, b);
+        const float k = 1.0f + wides[t] * 0.01f;
+        float wm = 0, ws = 0;
+        for (int i = 0; i < LEN; i++) {
+            const float mi = 0.5f * (wide_in[2 * i] + wide_in[2 * i + 1]), si = 0.5f * (wide_in[2 * i] - wide_in[2 * i + 1]);
+            const float mo = 0.5f * (b[2 * i] + b[2 * i + 1]), so = 0.5f * (b[2 * i] - b[2 * i + 1]);
+            if (fabsf(mo - mi) > wm) wm = fabsf(mo - mi);
+            if (fabsf(so - k * si) > ws) ws = fabsf(so - k * si);
+        }
+        CHECK(wm < 1e-7f, "M/S %g: the mid moved by %g", wides[t], wm);
+        CHECK(ws < 1e-6f, "M/S %g: the side is not x%.2f (worst %g)", wides[t], k, ws);
+    }
+    /* -100 folds to mono, exactly; a mono input is left alone. */
+    run(CFG(STEREOID_MS, -100), wide_in, b);
+    int mono = 1;
+    for (int i = 0; i < LEN; i++) if (b[2 * i] != b[2 * i + 1]) { mono = 0; break; }
+    CHECK(mono, "M/S -100 did not fold to mono");
+    run(CFG(STEREOID_MS, 100), snare, b);
+    CHECK(!memcmp(b, snare, sizeof b), "M/S changed a mono input");
+
+    /* The band: with WFREQ 400 and HICUT 3000 a stereo 60 Hz or 12 kHz keeps
+     * its side; a 1 kHz one's doubles. The mono sum stays exact. */
+    {
+        const double hz[] = {60.0, 1000.0, 12000.0};
+        double ratio[3];
+        for (int t = 0; t < 3; t++) {
+            for (int i = 0; i < LEN; i++) {
+                const float v = 0.2f * (float) sin(2 * PI * hz[t] * i / SR);
+                a[2 * i] = v; a[2 * i + 1] = 0.5f * v;          /* left-heavy: side = v/4 */
+            }
+            cfg c = CFG(STEREOID_MS, 100);
+            c.freq = 400; c.hicut = 3000;
+            run(c, a, b);
+            double si = 0, so = 0;
+            float wsum = 0;
+            for (int i = LEN / 2; i < LEN; i++) {
+                const double di = a[2 * i] - a[2 * i + 1], d = b[2 * i] - b[2 * i + 1];
+                si += di * di; so += d * d;
+                const float e = fabsf((b[2 * i] + b[2 * i + 1]) - (a[2 * i] + a[2 * i + 1]));
+                if (e > wsum) wsum = e;
+            }
+            ratio[t] = sqrt(so / si);
+            CHECK(wsum < 1e-6f, "M/S with both corners changed the mono sum at %g Hz (worst %g)", hz[t], wsum);
+        }
+        CHECK(fabs(ratio[1] - 2.0) < 0.1, "M/S +100 inside the band: side x%.3f, want x2", ratio[1]);
+        CHECK(fabs(ratio[0] - 1.0) < 0.02 && fabs(ratio[2] - 1.0) < 0.02,
+              "M/S moved the side outside the band: 60 Hz x%.3f, 12 kHz x%.3f, want x1", ratio[0], ratio[2]);
+    }
+
+    /* COMP follows k as Haas's follows LATE: Peak 1/k, Loud sqrt(2/(1+k^2)),
+     * never a boost. A hard-left tone at +100 with Peak stays under its peak. */
+    {
+        cfg c = CFG(STEREOID_MS, 100);
+        c.comp = STEREOID_COMP_PEAK;
+        for (int i = 0; i < LEN; i++) { a[2 * i] = 0.25f * (float) sin(2 * PI * 1000.0 * i / SR); a[2 * i + 1] = 0; }
+        run(c, a, b);
+        float pk = 0;
+        for (int i = 0; i < 2 * LEN; i++) if (fabsf(b[i]) > pk) pk = fabsf(b[i]);
+        CHECK(pk <= 0.2501f, "M/S +100 with COMP Peak let a hard-left tone reach %.4f (in 0.25)", pk);
+        float worst = 0;
+        run(c, wide_in, b);
+        for (int i = 0; i < LEN; i++) {
+            const float e = fabsf((b[2 * i] + b[2 * i + 1]) - 0.5f * (wide_in[2 * i] + wide_in[2 * i + 1]));
+            if (e > worst) worst = e;
+        }
+        CHECK(worst < 1e-6f, "M/S +100 COMP Peak: the mono sum is not x0.5 (worst %g)", worst);
+        c.comp = STEREOID_COMP_LOUD;
+        run(c, wide_in, b);
+        worst = 0;
+        for (int i = 0; i < LEN; i++) {
+            const float e = fabsf((b[2 * i] + b[2 * i + 1]) - 0.63245553f * (wide_in[2 * i] + wide_in[2 * i + 1]));
+            if (e > worst) worst = e;
+        }
+        CHECK(worst < 1e-6f, "M/S +100 COMP Loud: the mono sum is not x0.632 (worst %g)", worst);
+        c = CFG(STEREOID_MS, -60);
+        run(c, wide_in, a);
+        c.comp = STEREOID_COMP_PEAK;
+        run(c, wide_in, b);
+        CHECK(!memcmp(a, b, sizeof a), "COMP boosted a narrowed M/S");
+    }
+}
+
 static void test_trim(void) {
     cfg c = CFG(STEREOID_COMB, 100.0f);
     c.trim = -6.0206f;
@@ -554,15 +643,18 @@ static void test_moves(void) {
     /* the largest frame-to-frame step the tone itself can make, widened */
     const float natural = (float) (2 * PI * hz / SR) * amp * 2.0f;
 
-    struct { const char *what; cfg from, to; } mv[5];
+    struct { const char *what; cfg from, to; } mv[6];
     mv[0].what = "Comb TIME 2 -> 10";  mv[0].from = CFG(STEREOID_COMB, 100); mv[0].from.time = 2;  mv[0].to = mv[0].from; mv[0].to.time = 10;
     mv[1].what = "Comb WIDE 100 -> 10"; mv[1].from = CFG(STEREOID_COMB, 100); mv[1].to = CFG(STEREOID_COMB, 10);
     mv[2].what = "Haas WIDE 20 -> 100"; mv[2].from = CFG(STEREOID_HAAS, 20);  mv[2].to = CFG(STEREOID_HAAS, 100);
     mv[3].what = "TRIM 0 -> -12";       mv[3].from = CFG(STEREOID_COMB, 50);  mv[3].to = mv[3].from; mv[3].to.trim = -12;
     mv[4].what = "COMP Off -> Peak";    mv[4].from = CFG(STEREOID_COMB, 100); mv[4].to = mv[4].from; mv[4].to.comp = STEREOID_COMP_PEAK;
 
-    for (int t = 0; t < 5; t++) {
+    mv[5].what = "M/S WIDE -100 -> 100"; mv[5].from = CFG(STEREOID_MS, -100); mv[5].to = CFG(STEREOID_MS, 100);
+
+    for (int t = 0; t < 6; t++) {
         tone_in(a, hz, amp);
+        if (t == 5) for (int i = 0; i < LEN; i++) a[2 * i + 1] *= 0.3f;     /* M/S needs a side to move */
         stereoid_init(&s);
         apply(&s, mv[t].from);
         memcpy(b, a, sizeof b);
@@ -642,6 +734,8 @@ static void test_module(void) {
 
     /* The enum: names both ways, an index accepted, anything else ignored. */
     set("mode", "Disperse"); CHECK(!strcmp(get("mode"), "Disperse"), "mode reads %s", get("mode"));
+    set("mode", "M/S");      CHECK(!strcmp(get("mode"), "M/S"), "mode reads %s", get("mode"));
+    set("mode", "3");        CHECK(!strcmp(get("mode"), "M/S"), "mode index 3 reads %s", get("mode"));
     set("mode", "1");        CHECK(!strcmp(get("mode"), "Haas"), "mode by index reads %s", get("mode"));
     set("mode", "Wider");    CHECK(!strcmp(get("mode"), "Haas"), "an unknown name moved mode: %s", get("mode"));
     set("comp", "Peak");     CHECK(!strcmp(get("comp"), "Peak"), "comp reads %s", get("comp"));
@@ -722,6 +816,7 @@ int main(void) {
     test_comb();
     test_haas();
     test_disperse();
+    test_ms();
     test_trim();
     test_comp();
     test_moves();

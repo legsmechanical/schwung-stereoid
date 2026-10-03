@@ -1,4 +1,4 @@
-# Stereoid — a three-engine stereo widener (audio_fx)
+# Stereoid — a four-engine stereo widener (audio_fx)
 
 Lifted from DR32's per-pad Stereo page (`schwung-dr32` `dsp/dr32_kit.c`: `wide_run`, `comb_run`,
 `haas_run`, `disperse_run`), where the laws were tuned by ear. DR32 keeps its own copy; the two are
@@ -9,8 +9,8 @@ not shared code, and a change here does not go back there.
 - `dsp/stereoid.{h,c}` — the widener. Interleaved stereo float in place, no host types. The laws and
   where each came from are in the comment above each engine.
 - `src/stereoid_module.c` — the host contract only (audio_fx v2, int16, stringly params, state).
-- `src/module.json` — ONE page of eight. `late` is gated on `mode` with `visible_if`, which is a
-  LEVEL field: in `chain_params` it hides nothing.
+- `src/module.json` — ONE page of eight. `late` (Haas only) and `time` (not M/S) are gated on `mode`
+  with `visible_if`, which is a LEVEL field: in `chain_params` it hides nothing.
 - `tests/test_stereoid.c` — every law, plus the host contract. `tools/pages_check.mjs` runs
   upstream's validator and planner once per engine.
 
@@ -20,12 +20,16 @@ not shared code, and a change here does not go back there.
   from itself, Haas delays one whole channel. No source switch.
 - **Everything on one page**, and only the knobs that apply to the engine show. A hidden knob closes
   up, so the one engine-only knob is LAST: MODE WIDE WFREQ TIME / TRIM COMP HICUT, then LATE in
-  Haas. Comb and Disperse show seven, Haas eight.
+  Haas. Comb and Disperse show seven, Haas eight, M/S six (no TIME).
 - **Headroom is TRIM and COMP together** (Josh: *"why not add the multi-mode compensation we
   discussed earlier and keep trim"*). TRIM is a plain output level. COMP is Off | Loud | Peak, a trim
   that follows the width: Loud `1/sqrt(1+g^2)` (DR32's COMP), Peak `1/(1+g)`. Haas is trimmed only
   for what LATE adds above 0 dB. Nothing LIMITS the output; past full scale the int16 clips. Peak's
   bound is for the unfiltered worst case — a filter or all-pass can overshoot it slightly.
+- **M/S, the fourth engine** (2026-10-03). Josh, on stereo content: *"is it normal to not be able to
+  tell much difference?"* — yes: the other three CREATE width, so an already-wide source has little
+  to gain. M/S scales the side the input already has (`k = 1 + WIDE/100`, -100 exactly mono), inside
+  the WFREQ..HICUT band. A mono input is left alone. COMP treats k as Haas treats LATE.
 - The measured model is called **Disperse**, never by the name of the product it was measured from.
 
 ## Rules that bite

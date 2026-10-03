@@ -1,15 +1,17 @@
-/* stereoid.c — Comb, Haas and Disperse, one stage, three engines.
+/* stereoid.c — Comb, Haas, Disperse and M/S, one stage, four engines.
  *
  * Lifted from DR32's per-pad widener (schwung-dr32 dsp/dr32_kit.c: wide_run,
  * comb_run, haas_run, disperse_run), where every law below was tuned by ear
  * and pinned by test. What a standalone effect adds to it:
  *   - HICUT, the top of the widened band (DR32 has only WFREQ, the bottom)
  *   - TRIM, a plain output level, and COMP grown a third setting, Peak
+ *   - M/S, a fourth engine: the one that widens what is ALREADY wide
  *   - gains and the delay are approached rather than jumped to
  *
  * Each engine keeps its own answer to a STEREO input (Josh: "have each engine
  * keep its stereo behavior"): Comb widens the mid, Disperse widens each
- * channel from itself, Haas delays one whole channel.
+ * channel from itself, Haas delays one whole channel, M/S scales the side the
+ * input already has.
  *
  * MIT licensed (see LICENSE).
  */
@@ -273,6 +275,48 @@ static void disperse_run(stereoid *s, float pct, float *x, int frames, int first
     s->g = g_to;
 }
 
+/* ---- M/S ------------------------------------------------------------------ *
+ * The classic width control: the side the input ALREADY has, scaled.
+ *
+ *     side = (L - R) / 2,   k = 1 + WIDE / 100      (0 at -100, 2 at +100)
+ *     side' = side + (k - 1) * BP(side),   L = mid + side',   R = mid - side'
+ *
+ * The other three engines MAKE the two channels differ, so they do most to
+ * a mono or centred source and little to one that is already wide (Josh, on
+ * stereo content: "is it normal to not be able to tell much difference?").
+ * This is their complement: a mono input has no side, so it does nothing to
+ * one; on a stereo mix it is the most audible of the four. -100 folds to
+ * mono. The mid — and so the mono sum — is untouched at any setting.
+ * BP is WFREQ's high-pass and HICUT's low-pass: outside the band the side is
+ * left as it was (so WFREQ keeps the low end's width as recorded, whichever
+ * way WIDE goes). TIME has no meaning here.
+ */
+static void ms_run(stereoid *s, float pct, float *x, int frames, int first) {
+    const stereoid_params *p = &s->p;
+    const float g_to = pct * 0.01f;                       /* k - 1 */
+    const int hp = p->freq > STEREOID_FREQ_MIN + 0.5f;
+    const int lp = p->hicut < STEREOID_HICUT_MAX - 0.5f;
+    if (hp) svf_set(&s->lo, p->freq);
+    if (lp) svf_set(&s->hi, p->hicut);
+    if (first) s->g = g_to;
+    float g = s->g;
+    const float g_inc = (g_to - g) / (float)frames;
+    for (int i = 0; i < frames; i++) {
+        /* Rebuilt from mid and side, so that -100 is EXACTLY mono: the side
+         * cancels to 0 and both channels are the same float. */
+        const float m  = 0.5f * (x[2 * i] + x[2 * i + 1]);
+        const float sd = 0.5f * (x[2 * i] - x[2 * i + 1]);
+        float band = sd;
+        if (hp) band = lr4_hp(&s->lo, s->st[0] + 0, band);
+        if (lp) band = lr4_lp(&s->hi, s->st[0] + 2, band);
+        const float side = sd + g * band;
+        x[2 * i]     = m + side;
+        x[2 * i + 1] = m - side;
+        g += g_inc;
+    }
+    s->g = g_to;
+}
+
 /* ---- the stage ------------------------------------------------------------ */
 
 void stereoid_defaults(stereoid_params *p) {
@@ -302,13 +346,16 @@ void stereoid_init(stereoid *s) {
  *
  * Haas adds nothing — one ear is only delayed — until LATE raises that ear
  * above the other. Then, with l = LATE's gain: Loud sqrt(2 / (1 + l^2)),
- * Peak 1 / l. Never a boost.
+ * Peak 1 / l. M/S the same, with l = k, the side's gain: an ear is
+ * ((1+k) L + (1-k) R) / 2, which peaks at max(1, k) x the input's. Never a
+ * boost, so narrowing is never compensated.
  */
 static float comp_gain(const stereoid_params *p, float pct) {
     if (p->comp == STEREOID_COMP_OFF || pct == 0.0f) return 1.0f;
     const int peak = p->comp == STEREOID_COMP_PEAK;
-    if (p->mode == STEREOID_HAAS) {
-        const float l = powf(10.0f, clampf(p->late, -STEREOID_LATE_MAX, STEREOID_LATE_MAX) * 0.05f);
+    if (p->mode == STEREOID_HAAS || p->mode == STEREOID_MS) {
+        const float l = p->mode == STEREOID_MS ? 1.0f + pct * 0.01f
+            : powf(10.0f, clampf(p->late, -STEREOID_LATE_MAX, STEREOID_LATE_MAX) * 0.05f);
         if (l <= 1.0f) return 1.0f;
         return peak ? 1.0f / l : sqrtf(2.0f / (1.0f + l * l));
     }
@@ -345,6 +392,7 @@ void stereoid_process(stereoid *s, float *x, int frames) {
         s->mode = p->mode;
         if (p->mode == STEREOID_HAAS) haas_run(s, pct, x, frames, first);
         else if (p->mode == STEREOID_DISPERSE) disperse_run(s, pct, x, frames, first);
+        else if (p->mode == STEREOID_MS) ms_run(s, pct, x, frames, first);
         else comb_run(s, pct, x, frames, first);
         s->live = 1;
         /* Through silence the filter states decay into denormals and stay

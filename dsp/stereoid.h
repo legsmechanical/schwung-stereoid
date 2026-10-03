@@ -1,4 +1,4 @@
-/* stereoid.h — a three-engine stereo widener, lifted from DR32's Stereo page.
+/* stereoid.h — a four-engine stereo widener, three of them lifted from DR32's Stereo page.
  *
  * The DSP only: interleaved stereo float in place, 44.1 kHz, no host types.
  * The laws and where they came from are at each engine in stereoid.c.
@@ -12,7 +12,7 @@
 #define STEREOID_RING      2048       /* frames per channel; the longest delay, Haas's 15 ms, is 662 */
 #define STEREOID_AP_STAGES 5
 
-enum { STEREOID_COMB = 0, STEREOID_HAAS, STEREOID_DISPERSE, STEREOID_MODES };
+enum { STEREOID_COMB = 0, STEREOID_HAAS, STEREOID_DISPERSE, STEREOID_MS, STEREOID_MODES };
 enum { STEREOID_COMP_OFF = 0, STEREOID_COMP_LOUD, STEREOID_COMP_PEAK, STEREOID_COMPS };
 
 #define STEREOID_FREQ_MIN   20.0f     /* WFREQ at its floor = full band, no filter run */
@@ -24,7 +24,7 @@ enum { STEREOID_COMP_OFF = 0, STEREOID_COMP_LOUD, STEREOID_COMP_PEAK, STEREOID_C
 #define STEREOID_LATE_MAX   12.0f
 
 typedef struct {
-    int   mode;     /* STEREOID_COMB | HAAS | DISPERSE */
+    int   mode;     /* STEREOID_COMB | HAAS | DISPERSE | MS */
     float wide;     /* -100..100 %; 0 is a true bypass of the widener; the sign mirrors */
     float freq;     /* WFREQ, Hz: nothing below it is widened */
     float time;     /* ms; 0 = Auto (each engine's own delay) */

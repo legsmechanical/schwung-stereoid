@@ -24,7 +24,7 @@ typedef struct {
     float buf[ST_MAX_BLOCK * 2];
 } st_t;
 
-static const char *const kModes[STEREOID_MODES] = { "Comb", "Haas", "Disperse" };
+static const char *const kModes[STEREOID_MODES] = { "Comb", "Haas", "Disperse", "M/S" };
 static const char *const kComps[STEREOID_COMPS] = { "Off", "Loud", "Peak" };
 
 /* The ranges module.json declares; `mode` and `comp` are enums, and speak NAMES

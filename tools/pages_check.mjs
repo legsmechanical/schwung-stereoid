@@ -58,6 +58,7 @@ const want = {
     Comb:     "mode wide freq time trim comp hicut",
     Haas:     "mode wide freq time trim comp hicut late",
     Disperse: "mode wide freq time trim comp hicut",
+    "M/S":    "mode wide freq trim comp hicut",
 };
 for (const [mode, keys] of Object.entries(want)) {
     const visible = (cond) => {
