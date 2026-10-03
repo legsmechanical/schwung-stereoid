@@ -19,6 +19,7 @@ echo "==> running"
 ./dist/tests/test_stereoid
 if command -v node >/dev/null 2>&1; then
     node tools/pages_check.mjs
+    node tools/check_help.mjs
 else
     echo "pages_check: no node — skipped"
 fi

@@ -26,7 +26,7 @@ Comb, Haas and Disperse create width, so they do the most to mono or centred mat
 | HICUT | 1000..20000 Hz | Nothing above it is widened. 20000 = off |
 | LATE | -12..+12 dB | Haas only: the delayed side's level. Up counters the lean, down deepens it |
 
-Requires Schwung 1.5.0.
+Requires Schwung 1.5.0. Install it from the Schwung manager's module list, or build it yourself:
 
 ## Build and test
 

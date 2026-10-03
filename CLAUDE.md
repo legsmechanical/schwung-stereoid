@@ -55,6 +55,11 @@ not shared code, and a change here does not go back there.
 - Install to the STOCK tree only (`schwung/modules/audio_fx/stereoid`); dbx-host's `audio_fx` is a
   symlink to it.
 
-## Not done yet
+## Releasing
 
-No release workflow, `release.json`, `help.json` or catalog entry. Not yet heard on the device.
+`src/module.json` version, then an ANNOTATED tag (`git tag -a v0.2.0`, the annotation is the release
+notes) and push it. `.github/workflows/release.yml` tests in debian:bookworm, builds, checks the
+tarball and the tag/version agreement, publishes, and commits `release.json` to `main` — the
+manager reads THAT file on the default branch, so a release without it is invisible to the catalog.
+`tools/check_help.mjs` (from DR32) measures every help line in pixels against the host's font;
+it SKIPS without a host checkout, so run it locally before tagging.

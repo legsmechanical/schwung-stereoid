@@ -1,0 +1,100 @@
+# Tag -> tested build -> GitHub release -> release.json.
+#
+# Schwung Manager reads release.json ON THE DEFAULT BRANCH (main), not the
+# GitHub releases API, so the last step is not bookkeeping: without it the
+# catalog cannot see a new version at all.
+#
+# Tag with `git tag -a vX.Y.Z`: the annotation IS the release notes, and an
+# unannotated tag fails rather than publishing an empty release.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # checkout leaves the pushed tag LIGHTWEIGHT, so %(contents) would read
+      # the commit message. Fetch the annotated tag object over the top.
+      - name: Fetch the annotated tag
+        run: git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+
+      # A tag that does not pass its own suite must not become a release. In
+      # debian:bookworm, where the release builds, not on the bare runner:
+      # the distro chooses compiler defaults that are -Werror differences.
+      # (pages_check and check_help skip here: no host checkout on the runner.)
+      - name: Test
+        run: |
+          docker run --rm -v "$PWD":/work -w /work debian:bookworm bash -c '
+            apt-get -qq update >/dev/null && apt-get -qq install -y gcc libc6-dev nodejs >/dev/null
+            tests/run.sh'
+
+      # build.sh builds its toolchain from scripts/Dockerfile and asserts the
+      # compiler (gcc 12.2.0) out of the artifact.
+      - name: Build
+        run: ./scripts/build.sh
+
+      - name: Verify the artifact
+        run: |
+          set -eu
+          for f in stereoid/stereoid.so stereoid/module.json stereoid/help.json stereoid/LICENSE; do
+            tar tzf dist/stereoid-module.tar.gz | grep -qx "$f" || {
+              echo "ERROR: $f missing from the tarball" >&2; exit 1; }
+          done
+          # The tag and the shipped module.json must agree, or the catalog
+          # offers an update that installs a different version than it claims.
+          want="${GITHUB_REF_NAME#v}"
+          got=$(python3 -c 'import json; print(json.load(open("src/module.json"))["version"])')
+          [ "$want" = "$got" ] || {
+            echo "ERROR: tag is $GITHUB_REF_NAME but src/module.json says $got" >&2; exit 1; }
+
+      - name: Release notes from the tag
+        run: |
+          set -eu
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > /tmp/notes.md
+          if [ ! -s /tmp/notes.md ]; then
+            echo "ERROR: $GITHUB_REF_NAME has no annotation; tag with 'git tag -a'" >&2
+            exit 1
+          fi
+          cat /tmp/notes.md
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/stereoid-module.tar.gz
+          body_path: /tmp/notes.md
+
+      # In a fresh clone: the Docker build leaves root-owned files in this
+      # working tree, and a checkout that fails on them would fail AFTER the
+      # release is already public.
+      - name: Point release.json at it
+        run: |
+          set -eu
+          VERSION="${GITHUB_REF_NAME#v}"
+          git clone --depth 1 --branch main \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/pub
+          cd /tmp/pub
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          cat > release.json <<JSON
+          {
+            "version": "${VERSION}",
+            "download_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/stereoid-module.tar.gz"
+          }
+          JSON
+          git add release.json
+          git commit -m "chore: release.json for ${GITHUB_REF_NAME}" || { echo "release.json already current"; exit 0; }
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

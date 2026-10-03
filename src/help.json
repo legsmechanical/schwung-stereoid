@@ -1,0 +1,190 @@
+{
+ "title": "Stereoid",
+ "children": [
+  {
+   "title": "Overview",
+   "lines": [
+    "A stereo widener with",
+    "four engines.",
+    "",
+    "Comb, Haas and",
+    "Disperse CREATE width:",
+    "they do the most to",
+    "mono or centred",
+    "sounds.",
+    "",
+    "M/S turns up the",
+    "width a stereo source",
+    "already has.",
+    "",
+    "WIDE 0 is a true",
+    "bypass in every",
+    "engine."
+   ]
+  },
+  {
+   "title": "Engines",
+   "children": [
+    {
+     "title": "Comb",
+     "lines": [
+      "Adds a delayed copy",
+      "of the mid to one",
+      "side and takes it",
+      "from the other.",
+      "",
+      "No lean, and the mono",
+      "sum is exactly the",
+      "input. The sign of",
+      "WIDE mirrors the comb."
+     ]
+    },
+    {
+     "title": "Haas",
+     "lines": [
+      "Delays one side. The",
+      "image leans toward",
+      "the side that arrives",
+      "first: that is the",
+      "character.",
+      "",
+      "+ delays the right,",
+      "- the left. LATE sets",
+      "the delayed side's",
+      "level."
+     ]
+    },
+    {
+     "title": "Disperse",
+     "lines": [
+      "An all-pass and comb",
+      "widener, modelled from",
+      "measurement.",
+      "",
+      "Each channel widens",
+      "from itself, so a",
+      "hard-panned sound",
+      "stays on its side.",
+      "",
+      "Mono sum exact for a",
+      "mono input."
+     ]
+    },
+    {
+     "title": "M/S",
+     "lines": [
+      "Scales the side the",
+      "input already has.",
+      "",
+      "-100 is mono, 0 is",
+      "unchanged, +100",
+      "doubles the side.",
+      "",
+      "Does nothing to a",
+      "mono source. The mid",
+      "never changes."
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Controls",
+   "children": [
+    {
+     "title": "Wide",
+     "lines": [
+      "-100 to +100.",
+      "",
+      "How wide. 0 is a true",
+      "bypass. The sign picks",
+      "the side or mirrors",
+      "the comb. In M/S it is",
+      "the side's level."
+     ]
+    },
+    {
+     "title": "Wide Freq",
+     "lines": [
+      "Nothing below it is",
+      "widened, so the low",
+      "end stays where it",
+      "was.",
+      "",
+      "20 Hz is full band."
+     ]
+    },
+    {
+     "title": "Time",
+     "lines": [
+      "The delay, 0 to 12 ms.",
+      "",
+      "0 is Auto: each",
+      "engine's own. In Haas,",
+      "setting it makes WIDE",
+      "the delayed side's",
+      "mix.",
+      "",
+      "Not in M/S."
+     ]
+    },
+    {
+     "title": "Trim",
+     "lines": [
+      "Output level, -12 to",
+      "0 dB, by hand."
+     ]
+    },
+    {
+     "title": "Comp",
+     "lines": [
+      "A trim that follows",
+      "the width.",
+      "",
+      "Loud holds loudness",
+      "(up to -3 dB).",
+      "Peak holds the worst",
+      "case peak (up to",
+      "-6 dB).",
+      "",
+      "Both lower the mono",
+      "sum; Off keeps it",
+      "exact."
+     ]
+    },
+    {
+     "title": "High Cut",
+     "lines": [
+      "Nothing above it is",
+      "widened.",
+      "",
+      "20 kHz is off."
+     ]
+    },
+    {
+     "title": "Late Level",
+     "lines": [
+      "Haas only. The delayed",
+      "side's level, +/-12 dB.",
+      "",
+      "Up counters the lean,",
+      "down deepens it."
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Headroom",
+   "lines": [
+    "A widener adds to",
+    "each channel: at full",
+    "width one can reach",
+    "twice the input.",
+    "Nothing here limits",
+    "it.",
+    "",
+    "Use Trim or Comp if",
+    "it clips."
+   ]
+  }
+ ]
+}

@@ -49,7 +49,7 @@ fi
 
 echo "==> packaging dist/"
 cp "build/${MODULE_ID}.so" "dist/${MODULE_ID}/"
-cp src/module.json "dist/${MODULE_ID}/"
+cp src/module.json src/help.json LICENSE "dist/${MODULE_ID}/"
 
 tar -czf "dist/${MODULE_ID}-module.tar.gz" -C dist "${MODULE_ID}"
 echo "==> done: dist/${MODULE_ID}-module.tar.gz"

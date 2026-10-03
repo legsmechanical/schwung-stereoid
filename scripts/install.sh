@@ -19,7 +19,7 @@ echo "==> installing to ableton@${HOST}:${DEST}"
 ssh "ableton@${HOST}" "mkdir -p '${DEST}'"
 # A temp name, then mv: never write a loaded .so in place (ETXTBSY), and a
 # module file may be hard-linked into a backup tree, which mv leaves alone.
-for f in "${MODULE_ID}.so" module.json; do
+for f in "${MODULE_ID}.so" module.json help.json LICENSE; do
     scp "$HERE/dist/${MODULE_ID}/$f" "ableton@${HOST}:${DEST}/.$f.new"
     ssh "ableton@${HOST}" "mv -f '${DEST}/.$f.new' '${DEST}/$f'"
 done
